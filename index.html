@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>きもちの器 v0.1</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif;background:#fafafa;color:#333}
+main{max-width:520px;margin:0 auto;padding:18px 14px 24px}
+.head{display:flex;justify-content:flex-end;align-items:center;gap:8px;color:#777;font-size:14px}
+.total{font-size:26px;font-weight:700;color:#333}
+.stage{position:relative;width:min(100%,430px);aspect-ratio:1/1;min-height:280px;margin:4px auto 14px;overflow:hidden}
+.glass{position:absolute;left:10%;right:10%;top:5%;bottom:4%;border:2px solid rgba(100,100,100,.45);border-top-width:3px;border-radius:22% 22% 34% 34% / 13% 13% 40% 40%;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(220,220,220,.14));overflow:hidden}
+.rim{position:absolute;left:8%;right:8%;top:2%;height:12%;border:2px solid rgba(100,100,100,.4);border-radius:50%;background:rgba(255,255,255,.5)}
+.ball{position:absolute;width:30px;height:30px;display:grid;place-items:center;font-size:25px;line-height:1;pointer-events:none;will-change:transform;filter:drop-shadow(0 1px 1px rgba(0,0,0,.12))}
+.buttons{width:min(100%,430px);margin:auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.btn{min-height:64px;border:1px solid #ddd;border-radius:14px;background:#f2f2f2;color:#333;padding:7px 3px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;font:inherit;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.94);background:#e8e8e8}
+.emoji{font-size:25px;line-height:1}.label{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.count{font-size:11px;color:#888;font-variant-numeric:tabular-nums}
+.reset{display:block;margin:10px auto 0;border:0;background:none;color:#777;font:inherit;font-size:12px;text-decoration:underline;cursor:pointer;padding:8px}
+@media(max-width:380px){.btn{min-height:58px}.label{font-size:10px}.ball{width:26px;height:26px;font-size:22px}}
+</style>
+</head>
+<body>
+<main id="app">
+  <div class="head"><span>合計</span><span id="total" class="total">0</span></div>
+  <div id="stage" class="stage" aria-label="感情の器">
+    <div class="glass" id="glass"></div><div class="rim"></div>
+  </div>
+  <div id="buttons" class="buttons"></div>
+  <button type="button" id="reset" class="reset">今すぐ空にする</button>
+</main>
+<script>
+(() => {
+  const moods=[
+    ["😵‍💫","ヘトヘト"],["😴","ねむい"],["😖","切ない"],["🔥","がんばるぞ"],
+    ["❤️‍🩹","回復中"],["❤️","Love"],["🎶","音楽relax"],["💙","すき"]
+  ];
+  const stage=document.getElementById("stage"), glass=document.getElementById("glass");
+  const buttons=document.getElementById("buttons"), totalEl=document.getElementById("total"), reset=document.getElementById("reset");
+  const counts=Array(8).fill(0), balls=[]; let raf=0;
+
+  moods.forEach((m,i)=>{
+    const b=document.createElement("button");
+    b.type="button"; b.className="btn";
+    b.innerHTML=`<span class="emoji">${m[0]}</span><span class="label">${m[1]}</span><span class="count" id="c${i}">0</span>`;
+    b.addEventListener("click",e=>drop(i,e));
+    buttons.appendChild(b);
+  });
+
+  function update(){
+    totalEl.textContent=counts.reduce((a,b)=>a+b,0);
+    counts.forEach((c,i)=>document.getElementById("c"+i).textContent=c);
+  }
+
+  function drop(i,e){
+    counts[i]++; update();
+    const s=stage.getBoundingClientRect(), g=glass.getBoundingClientRect();
+    const ball={
+      el:document.createElement("div"),
+      x:e.clientX-s.left, y:e.clientY-s.top,
+      vx:(Math.random()-.5)*3.5, vy:-7-Math.random()*2.5,
+      emoji:moods[i][0],
+      floor:g.bottom-s.top-22,
+      left:g.left-s.left+5, right:g.right-s.left-35
+    };
+    ball.el.className="ball"; ball.el.textContent=ball.emoji; stage.appendChild(ball.el); balls.push(ball);
+    if(!raf) raf=requestAnimationFrame(tick);
+  }
+
+  function tick(){
+    for(let i=balls.length-1;i>=0;i--){
+      const b=balls[i];
+      b.vy+=.34; b.x+=b.vx; b.y+=b.vy;
+      if(b.y>b.floor){b.y=b.floor;b.vy*=-.34;b.vx*=.88;if(Math.abs(b.vy)<1.2){b.vy=0;b.vx*=.94}}
+      if(b.x<b.left){b.x=b.left;b.vx=Math.abs(b.vx)*.65}
+      if(b.x>b.right){b.x=b.right;b.vx=-Math.abs(b.vx)*.65}
+      b.el.style.transform=`translate3d(${b.x}px,${b.y}px,0)`;
+    }
+    raf=balls.length?requestAnimationFrame(tick):0;
+  }
+
+  function clear(){
+    counts.fill(0);
+    balls.splice(0).forEach(b=>b.el.remove());
+    update();
+  }
+  reset.addEventListener("click",clear);
+
+  function nextReset(){
+    const n=new Date(); n.setHours(4,0,0,0);
+    if(n<=new Date()) n.setDate(n.getDate()+1);
+    setTimeout(()=>{clear();nextReset()},n-Date.now());
+  }
+  nextReset(); update();
+})();
+</script>
+</body>
+</html>
